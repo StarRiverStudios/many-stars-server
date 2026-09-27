@@ -1,0 +1,153 @@
+services:
+  # 星空神域-Frp内网穿透服务（主线路）
+  sf-frp-main:
+    image: snowdreamtech/frpc:nightly-alpine
+    container_name: Star-Field_Frp-Main
+    restart: on-failure:3
+    stop_grace_period: 15s
+    mem_limit: 128m
+    volumes:
+      - ./Frp-Client:/etc/frp:cached
+    command: ["frpc", "-c", "/etc/frp/frpc-main.toml"]
+    network_mode: host
+    healthcheck:
+      test: ["CMD-SHELL", "ps -ef | grep -q [f]rpc"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # 星空神域-Frp内网穿透服务（香港线路）
+  sf-frp-hk:
+    image: snowdreamtech/frpc:nightly-alpine
+    container_name: Star-Field_Frp-HK
+    restart: on-failure:3
+    stop_grace_period: 15s
+    mem_limit: 128m
+    volumes:
+      - ./Frp-Client:/etc/frp:cached
+    command: ["frpc", "-c", "/etc/frp/frpc-hk.toml"]
+    network_mode: host
+    healthcheck:
+      test: ["CMD-SHELL", "ps -ef | grep -q [f]rpc"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # 星空神域-Velocity代理服务器
+  sf-velocity:
+    image: ccr.ccs.tencentyun.com/star-river-studios/many-stars-mc:latest
+    container_name: Star-Field_Velocity
+    restart: on-failure:3
+    stop_grace_period: 30s
+    init: true
+    tty: true
+    stdin_open: true
+    volumes:
+      - ./Velocity:/srv/mc-server/Velocity:rw
+    working_dir: /srv/mc-server/Velocity
+    command: ["bash", "-li", "./Start.sh"]
+    networks:
+      - sf-network
+      - database_net
+    ports:
+      - "12000:12000/tcp"
+      - "12000:12000/udp"
+      - "13000:13000/udp"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/12000'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+
+  # 星空神域-大厅服务器
+  sf-central-lobby:
+    image: ccr.ccs.tencentyun.com/star-river-studios/many-stars-mc:latest
+    container_name: Star-Field_Central-Lobby
+    restart: on-failure:3
+    stop_grace_period: 60s
+    init: true
+    tty: true
+    stdin_open: true
+    volumes:
+      - ./Sub-Server:/srv/mc-server/Sub-Server:rw
+    working_dir: /srv/mc-server/Sub-Server/lobby
+    command: ["bash", "-li", "./Start.sh"]
+    networks:
+      - sf-network
+      - database_net
+    depends_on:
+      sf-velocity:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/25565'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  # 星空神域-插件生存服务器
+  sf-plugin-survival:
+    image: ccr.ccs.tencentyun.com/star-river-studios/many-stars-mc:latest
+    container_name: Star-Field_Plugin-Survival
+    restart: on-failure:3
+    stop_grace_period: 60s
+    init: true
+    tty: true
+    stdin_open: true
+    volumes:
+      - ./Sub-Server:/srv/mc-server/Sub-Server:rw
+    working_dir: /srv/mc-server/Sub-Server/survival
+    command: ["bash", "-li", "./Start.sh"]
+    networks:
+      - sf-network
+      - database_net
+    depends_on:
+      sf-velocity:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/25565'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  # 星空神域-模组生存服务器
+  sf-mod-survival:
+    image: ccr.ccs.tencentyun.com/star-river-studios/many-stars-mc:latest
+    container_name: Star-Field_Mod-Survival
+    restart: on-failure:3
+    stop_grace_period: 60s
+    init: true
+    tty: true
+    stdin_open: true
+    volumes:
+      - ./Sub-Server:/srv/mc-server/Sub-Server:rw
+    working_dir: /srv/mc-server/Sub-Server/mod
+    command: ["bash", "-li", "./Start.sh"]
+    networks:
+      - sf-network
+      - database_net
+    depends_on:
+      sf-velocity:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/25565'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+networks:
+  # 星空神域-内部桥接网络
+  sf-network:
+    driver: bridge
+    enable_ipv6: true
+  
+  # 数据库服务器-内部桥接网络
+  database_net:
+    name: database_net
+    external: true
+    enable_ipv6: true
